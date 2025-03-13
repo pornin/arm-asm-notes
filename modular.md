@@ -16,12 +16,36 @@ following C code (which uses
 uint32_t
 make_m(uint32_t p)
 {
-    uint32_t r = 2 - p;
-    for (int i = 0; i < 4; i ++) {
-        r *= 2 - r * p;
+    uint32_t r = (p - (p << 2)) ^ 2;
+    for (int i = 0; i < 3; i ++) {
+        r *= 2 + r * p;
     }
-    return -r;
+    return r;
 }
+~~~
+
+This function is rarely required to be optimized, but here is an assembly
+routine that does it in 9 cycles (on ARMv7-M):
+
+~~~
+@ rp = odd integer
+@ rm <- -1/rp mod 2^32
+@ rp is preserved
+@ rt is scratch
+@ ru is scratch
+@ rv is scratch
+@ VARIANT: rm can be the same register as rp, rt, ru or rv
+.macro NINV32  rm, rp, rt, ru, rv
+        sub     \rt, \rp, \rp, lsl #2
+        movs    \ru, #2
+        eors    \rt, \ru
+        mla     \rv, \rt, \rp, \ru
+        muls    \rt, \rv
+        mla     \rv, \rt, \rp, \ru
+        muls    \rt, \rv
+        mla     \rv, \rt, \rp, \ru
+        mul     \rm, \rt, \rv
+.endm
 ~~~
 
 The *Montgomery representation* of an integer `x` is `x*R mod p`,
